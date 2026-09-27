@@ -1,0 +1,549 @@
+/* Kalimba 95 — mostly Windows XP, slightly desaturated, with a little Windows 95 flatness. */
+
+:root {
+  --face: #e6e3d6;
+  --face-dark: #c9c5b4;
+  --blue: #3a5f9e;
+  --blue-dark: #26457a;
+  --blue-light: #5f83bf;
+  --green: #4b8a46;
+  --green-dark: #35683a;
+  --sel: #3c64a8;
+  --tooltip: #ffffe1;
+  --orange: #e0a35c;
+  --taskbar-h: 30px;
+  --font: Tahoma, "Segoe UI", Verdana, sans-serif;
+  --title-font: "Trebuchet MS", Tahoma, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  font: 12px/1.35 var(--font); color: #000;
+  user-select: none; -webkit-user-select: none;
+  background: #000;
+}
+button { font: inherit; }
+[hidden] { display: none !important; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---------- XP flag (CSS-drawn, no asset needed) ---------- */
+.xp-flag {
+  display: inline-grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  width: 17px; height: 15px; transform: skewY(-5deg);
+}
+.xp-flag i { border-radius: 2px 5px 2px 5px; }
+.xp-flag i:nth-child(1) { background: #d6553a; }
+.xp-flag i:nth-child(2) { background: #6ba33e; }
+.xp-flag i:nth-child(3) { background: #3a73c0; }
+.xp-flag i:nth-child(4) { background: #ecb53a; }
+.xp-flag-md { width: 44px; height: 40px; gap: 3px; }
+.xp-flag-lg { width: 74px; height: 66px; gap: 4px; }
+
+/* ---------- Wallpaper (Bliss, with a CSS fallback if the jpg is missing) ---------- */
+#wallpaper {
+  position: fixed; inset: 0;
+  background-color: #5b86c4;
+  background-image:
+    url("../assets/wallpaper/bliss.jpg"),
+    radial-gradient(140% 70% at 25% 112%, #6f9c45 0 58%, transparent 58.3%),
+    radial-gradient(120% 60% at 90% 110%, #5f8f3b 0 55%, transparent 55.3%),
+    linear-gradient(180deg, #3f75c0 0%, #7aa6dc 45%, #b9d2ee 68%, #dce8f4 80%);
+  background-size: cover, 100% 100%, 100% 100%, 100% 100%;
+  background-position: center;
+  filter: saturate(0.75) brightness(0.97);
+}
+
+/* Drifting clouds (spawned and moved by js/clouds.js): one blob plus two pseudo-element puffs. */
+.clouds { position: absolute; inset: 0 0 45% 0; pointer-events: none; }
+#wallpaper.has-photo .clouds { display: none; }
+.cloud {
+  position: absolute; left: 0;
+  width: 180px; height: 48px; border-radius: 48px;
+  background: rgba(255, 255, 255, var(--alpha));
+  filter: blur(var(--blur, 1.5px));
+  transform-origin: left center;
+  will-change: transform;
+}
+.cloud::before, .cloud::after {
+  content: ""; position: absolute; border-radius: 50%; background: inherit;
+}
+.cloud::before { width: 78px; height: 70px; left: 26px; top: -36px; }
+.cloud::after { width: 96px; height: 84px; left: 72px; top: -48px; }
+
+/* ---------- Desktop + icons ---------- */
+/* No z-index here on purpose: files being dragged must be able to rise above windows and the narrator. */
+#desktop { position: fixed; inset: 0 0 var(--taskbar-h) 0; }
+#system-icons {
+  position: absolute; top: 8px; left: 6px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+#folders {
+  position: absolute; top: 8px; right: 6px; bottom: 112px; /* leaves room for the Recycle Bin */
+  display: grid; grid-auto-flow: column;
+  grid-template-rows: repeat(auto-fill, 100px); grid-auto-columns: 92px;
+  direction: rtl; column-gap: 4px; align-content: start;
+}
+#folders > * { direction: ltr; }
+#recycle-bin { position: absolute; right: 10px; bottom: 10px; }
+#files { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+#files.drag-active { z-index: 5000; }
+
+.icon {
+  width: 84px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 3px 2px; cursor: default; outline: none;
+  border: 1px dotted transparent; pointer-events: auto; touch-action: none;
+}
+.icon:focus-visible { border-color: rgba(255, 255, 255, 0.9); }
+.icon-label {
+  max-width: 82px; padding: 0 2px; color: #fff; text-align: center; word-break: break-word;
+  text-shadow: 1px 1px 1px #000, 0 0 2px #000;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.icon.selected .icon-label, .icon:focus-visible .icon-label { background: var(--sel); text-shadow: none; }
+/* Selection never recolors photos (colors are gameplay info): photos get a blue frame, stock icons just dim slightly. */
+.icon.selected .thumb { border-color: var(--sel); outline: 2px solid var(--sel); outline-offset: 0; }
+.icon.selected .icon-graphic { opacity: 0.8; }
+
+.icon-graphic {
+  display: inline-flex; align-items: center; justify-content: center;
+  position: relative; line-height: 1; flex: none;
+}
+.icon-graphic img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.file { position: absolute; }
+.file.dragging { opacity: 0.75; cursor: grabbing; z-index: 2; }
+.file.drag-lead { z-index: 3; }
+.drag-count {
+  position: absolute; top: -4px; right: 6px; min-width: 20px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: var(--sel); border: 1px solid #fff; color: #fff;
+  font: bold 11px/16px var(--font); text-align: center; box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+}
+/* A run virus glitches out and leaves a "-5s" behind */
+.file.zapped { pointer-events: none; animation: zap-glitch 0.45s steps(2) forwards; }
+.file.zapped > * { filter: grayscale(1) contrast(2); }
+@keyframes zap-glitch {
+  0% { transform: translate(0, 0); opacity: 1; }
+  20% { transform: translate(-4px, 1px) skewX(12deg); }
+  40% { transform: translate(4px, -1px) skewX(-12deg); opacity: 0.8; }
+  60% { transform: translate(-2px, 0) scaleY(0.4); opacity: 0.6; }
+  100% { transform: scaleY(0.05) scaleX(1.2); opacity: 0; }
+}
+.zap-pop {
+  position: absolute; z-index: 4; transform: translateX(-50%); pointer-events: none;
+  font: bold 18px var(--font); color: #ff5b4a; white-space: nowrap;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  animation: zap-pop 0.8s ease-out forwards;
+}
+@keyframes zap-pop { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, -34px); opacity: 0; } }
+
+/* XP-style rubber-band selection */
+.marquee {
+  position: absolute; z-index: 3; pointer-events: none;
+  border: 1px solid #3c64a8; background: rgba(60, 100, 168, 0.25);
+}
+.file.snapping { transition: left 0.18s ease-out, top 0.18s ease-out; }
+
+.thumb {
+  display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none;
+  background: #fff; border: 1px solid #9a9a9a; padding: 2px;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35);
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.thumb.ph-emoji { background: #f3f1ea; line-height: 1; }
+.ph-swatch { display: block; width: 100%; height: 100%; }
+
+.folder-graphic { position: relative; display: inline-flex; }
+.folder-emblem { position: absolute; left: -6px; bottom: -3px; font-size: 16px; line-height: 1; }
+.folder-swatch {
+  position: absolute; right: -3px; bottom: 0; width: 15px; height: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.55); border-radius: 2px;
+}
+.folder-tag {
+  position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
+  padding: 0 3px; background: #fff; border: 1px solid #555; color: #222;
+  font: bold 9px/12px var(--font);
+}
+.folder-badge {
+  position: absolute; top: -5px; right: -12px; min-width: 18px; height: 16px; padding: 0 4px;
+  border-radius: 8px; background: #fff; border: 1px solid var(--blue); color: var(--blue-dark);
+  font: bold 10px/14px var(--font); text-align: center;
+}
+.folder.drop-target .icon-label, .system.drop-target .icon-label { background: var(--sel); text-shadow: none; }
+.folder.drop-target .folder-graphic, .system.drop-target .icon-graphic { filter: brightness(1.15); outline: 1px dotted #fff; outline-offset: 2px; }
+
+/* ---------- Taskbar ---------- */
+#taskbar {
+  position: fixed; left: 0; right: 0; bottom: 0; height: var(--taskbar-h); z-index: 6000;
+  display: flex; align-items: stretch;
+  background: linear-gradient(180deg, #5b7fbd 0, #3a5f9e 12%, #36599a 88%, #2a4a82 100%);
+  border-top: 1px solid #7f9dcf;
+}
+#start-button {
+  display: flex; align-items: center; gap: 6px; padding: 0 18px 0 10px; margin-right: 8px;
+  border: 0; border-radius: 0 10px 10px 0; cursor: pointer; color: #fff;
+  background: linear-gradient(180deg, #6aa865 0, #4b8a46 15%, #447f40 85%, #35683a 100%);
+  font: italic bold 16px var(--title-font); text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.45);
+  box-shadow: inset -1px 0 2px rgba(0, 0, 0, 0.3);
+}
+#start-button:hover { filter: brightness(1.07); }
+#start-button[aria-expanded="true"] { background: linear-gradient(#3e7a3a, #35683a); }
+#start-button:focus-visible { outline: 1px dotted #fff; outline-offset: -4px; }
+#task-buttons { flex: 1; display: flex; gap: 3px; align-items: center; padding: 0 4px; min-width: 0; }
+.task-button {
+  height: 24px; max-width: 170px; flex: 0 1 170px; display: flex; align-items: center; gap: 5px;
+  padding: 0 8px; border-radius: 3px; border: 1px solid #2a4a82; color: #fff; cursor: pointer;
+  background: linear-gradient(#5f86c6, #4a70b2); white-space: nowrap; overflow: hidden;
+}
+.task-button span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.task-button.active { background: linear-gradient(#2e4f8c, #3a5f9e); box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.4); }
+#tray {
+  display: flex; align-items: center; gap: 12px; padding: 0 12px; color: #fff; white-space: nowrap;
+  background: linear-gradient(180deg, #6b95d0 0, #4b77b8 12%, #4570b0 88%, #3b64a2 100%);
+  border-left: 1px solid #2a4a82; box-shadow: inset 1px 0 0 #87a8dc;
+}
+#tray-timer { font-variant-numeric: tabular-nums; padding: 1px 4px; border-radius: 2px; }
+#tray-timer.hurry { color: #ffd6cc; font-weight: bold; }
+#tray-timer.penalty { background: #b8453a; }
+
+/* ---------- Windows ---------- */
+#windows { position: fixed; inset: 0 0 var(--taskbar-h) 0; pointer-events: none; z-index: 100; }
+/* Above the modal layer, so these windows (the media player) work while a dialog is open */
+#top-windows { position: fixed; inset: 0 0 var(--taskbar-h) 0; pointer-events: none; z-index: 9500; }
+.window {
+  position: absolute; pointer-events: auto; min-width: 200px;
+  display: flex; flex-direction: column; padding: 0 3px 3px;
+  background: var(--face); border: 1px solid var(--blue-dark); border-radius: 7px 7px 0 0;
+  box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.35);
+}
+.title-bar {
+  height: 26px; display: flex; align-items: center; gap: 5px; margin: 0 -3px; padding: 0 4px 0 7px;
+  border-radius: 6px 6px 0 0; color: #fff; cursor: default; touch-action: none;
+  background: linear-gradient(180deg, #6c8fcb 0, #4a6fae 10%, #3d62a3 50%, #34579a 90%, #2c4d88 100%);
+  font: bold 13px var(--title-font); text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+.window:not(.active) .title-bar { background: linear-gradient(#a5b5d4, #8a9cc0); }
+.title-text { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.title-buttons { display: flex; gap: 2px; }
+.title-buttons button {
+  width: 21px; height: 21px; padding: 0; border: 1px solid #fff; border-radius: 3px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: #fff; font: bold 12px/1 var(--font);
+  background: linear-gradient(#6f93d1, #4a6fae);
+}
+.title-buttons .close { background: linear-gradient(#d77a63, #b8453a); }
+.title-buttons button:focus-visible { outline: 1px dotted #fff; outline-offset: 1px; }
+.window-body { padding: 10px; background: var(--face); }
+
+/* Blocks the desktop while a dialog is open. Leaves the taskbar free so task buttons still work. */
+#modal-layer { position: fixed; inset: 0 0 var(--taskbar-h) 0; z-index: 9000; }
+.window.dialog { max-width: 420px; }
+.window.dialog .window-body { display: flex; gap: 14px; padding: 14px 14px 12px; }
+.dialog-message { white-space: pre-line; line-height: 1.5; min-width: 220px; }
+.dialog-buttons { display: flex; justify-content: center; gap: 8px; padding: 0 0 10px; background: var(--face); }
+.dlg-icon {
+  flex: none; width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font: bold 20px Georgia, serif; box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+}
+.dlg-icon.info, .dlg-icon.question { background: radial-gradient(circle at 35% 30%, #8fb3ea, #2f5fb0); }
+.dlg-icon.error { background: radial-gradient(circle at 35% 30%, #ee8c7a, #b3362b); font-family: var(--font); }
+.dlg-icon.warning { border-radius: 0; box-shadow: none; color: #c99400; font-size: 32px; }
+.dlg-icon.lock { border-radius: 0; box-shadow: none; font-size: 28px; }
+.dlg-field { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.dlg-input {
+  flex: 1; height: 22px; padding: 1px 4px; border: 1px solid #7f9db9; background: #fff;
+  font: 12px var(--font); user-select: text;
+}
+.dlg-input:focus { outline: 1px solid var(--sel); outline-offset: 0; }
+
+/* Zip archives on the desktop */
+.zip-graphic { position: relative; display: inline-flex; }
+.zip-lock { position: absolute; right: -8px; bottom: -4px; font-size: 18px; line-height: 1; }
+.file.busy { opacity: 0.6; cursor: progress; }
+
+/* "Extracting..." progress window */
+.extract { display: flex; flex-direction: column; gap: 8px; }
+.extract-anim { display: flex; justify-content: space-between; align-items: center; padding: 0 30px; font-size: 26px; }
+.extract-flying { font-size: 16px; animation: extract-fly 0.8s linear infinite; }
+@keyframes extract-fly { from { transform: translateX(-60px); opacity: 0.3; } 50% { opacity: 1; } to { transform: translateX(60px); opacity: 0.3; } }
+.extract-file { height: 16px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #333; }
+.xp-progress {
+  height: 16px; padding: 2px; border: 1px solid #7f9db9; border-radius: 3px; background: #fff; overflow: hidden;
+}
+.xp-progress-fill {
+  width: 0; height: 100%;
+  background: repeating-linear-gradient(90deg, #5da957 0 8px, transparent 8px 10px);
+}
+.extract-buttons { display: flex; justify-content: flex-end; }
+
+/* Notepad */
+.notepad {
+  min-height: 140px; max-height: 320px; overflow: auto; padding: 6px 8px;
+  background: #fff; border: 1px solid #7f9db9; white-space: pre-wrap;
+  font: 13px/1.45 "Lucida Console", "Courier New", monospace; user-select: text;
+}
+.explorer-empty { align-items: center; justify-content: center; color: #555; }
+
+/* Windows Defender alert */
+.defender-window .window-body { padding: 0; }
+.defender-head {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; color: #fff;
+  background: linear-gradient(#c1554a, #9e3b31); border-bottom: 2px solid #7a2c24;
+}
+.defender-shield { font-size: 30px; line-height: 1; }
+.defender-sub { font-size: 11px; opacity: 0.9; }
+.defender-body { padding: 4px 12px 10px; }
+.defender-body p { margin: 8px 0; line-height: 1.45; }
+.defender-cost { color: #b3362b; font-weight: bold; }
+.defender-tip { color: #444; }
+
+/* Password window (non-modal) */
+.pw-body { display: flex; flex-direction: column; gap: 6px; }
+.pw-row { display: flex; gap: 12px; align-items: center; line-height: 1.5; }
+.pw-error { min-height: 16px; color: #b3362b; font-weight: bold; }
+.pw-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+
+.btn {
+  min-width: 75px; height: 23px; padding: 0 10px; cursor: pointer; color: #000;
+  border: 1px solid #3a4f6f; border-radius: 3px;
+  background: linear-gradient(#fff, #ece9d8 85%, #d8d4c3);
+}
+.btn:hover { box-shadow: inset 0 0 0 2px #e8b35a; }
+.btn.default, .btn:focus-visible { box-shadow: inset 0 0 0 2px #9db5e0; outline: none; }
+.btn:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+.btn:active { background: linear-gradient(#e0ddd0, #f3f2ec); }
+
+/* Explorer-style window content */
+.explorer {
+  display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start;
+  min-height: 130px; padding: 10px; background: #fff; border: 1px solid #7f9db9;
+}
+.explorer .icon-label { color: #000; text-shadow: none; }
+.explorer .icon { cursor: default; }
+.window-text { padding: 12px; background: #fff; border: 1px solid #7f9db9; min-height: 80px; line-height: 1.5; user-select: text; white-space: pre-line; }
+.viewer { display: flex; justify-content: center; padding: 10px; background: #fff; border: 1px solid #7f9db9; }
+
+/* ---------- Start menu ---------- */
+#start-menu {
+  position: fixed; left: 0; bottom: var(--taskbar-h); width: 390px; z-index: 7000;
+  display: flex; flex-direction: column; background: #fff;
+  border: 1px solid var(--blue-dark); border-radius: 7px 7px 0 0;
+  box-shadow: 2px -1px 8px rgba(0, 0, 0, 0.4);
+}
+.sm-header {
+  height: 58px; display: flex; align-items: center; gap: 9px; padding: 0 10px;
+  border-radius: 6px 6px 0 0; color: #fff; border-bottom: 2px solid var(--orange);
+  background: linear-gradient(#5b7fbd, #3a5f9e 20%, #34579a);
+  font: bold 15px var(--title-font); text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+.sm-avatar {
+  width: 42px; height: 42px; border: 2px solid #f0f0f0; border-radius: 4px; background: #e9edf5;
+  display: flex; align-items: center; justify-content: center; font-size: 28px; text-shadow: none;
+}
+.sm-body { display: flex; }
+.sm-col { list-style: none; margin: 0; padding: 6px 0; }
+.sm-left { flex: 1.1; background: #fff; }
+.sm-right { flex: 1; background: #d9e3f2; border-left: 1px solid #a8bcdc; }
+.sm-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px;
+  border: 0; background: none; text-align: left; cursor: pointer; color: #000;
+}
+.sm-item:hover, .sm-item:focus-visible, .sm-item[aria-expanded="true"] { background: var(--sel); color: #fff; outline: none; }
+.sm-item .icon-graphic { font-size: 22px; }
+.sm-item .sm-label { flex: 1; }
+.sm-left .sm-label { font-weight: bold; }
+.sm-arrow { font-size: 9px; }
+.sm-sep { height: 1px; margin: 4px 8px; background: linear-gradient(90deg, transparent, #b8b8b8, transparent); }
+.sm-footer {
+  display: flex; justify-content: flex-end; gap: 8px; padding: 6px 10px;
+  background: linear-gradient(#3a5f9e, #2c4d88); border-top: 1px solid var(--blue-light);
+}
+.sm-footer button {
+  display: flex; align-items: center; gap: 6px; padding: 3px 6px; border: 0; border-radius: 3px;
+  background: none; color: #fff; cursor: pointer;
+}
+.sm-footer button:hover, .sm-footer button:focus-visible { background: rgba(255, 255, 255, 0.15); outline: none; }
+.power-icon, .key-icon {
+  width: 22px; height: 22px; border-radius: 4px; border: 1px solid #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #fff;
+}
+.power-icon { background: linear-gradient(#e0876f, #b8453a); }
+.key-icon { background: linear-gradient(#f0c25e, #c98d2a); }
+
+#levels-menu {
+  position: fixed; z-index: 7100; padding: 2px; background: #fff;
+  border: 1px solid #6f86ad; box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.35);
+  display: grid; grid-auto-flow: column; grid-template-rows: repeat(13, auto); grid-auto-columns: minmax(190px, auto);
+}
+.lv-item {
+  display: flex; align-items: center; gap: 6px; padding: 3px 8px; border: 0; background: none;
+  text-align: left; cursor: pointer; color: #000; white-space: nowrap;
+}
+.lv-item:hover, .lv-item:focus-visible { background: var(--sel); color: #fff; outline: none; }
+.lv-item.current { font-weight: bold; }
+.lv-check { width: 12px; }
+.lv-tag { margin-left: auto; font-size: 10px; opacity: 0.7; }
+
+/* ---------- Narrator ---------- */
+#narrator {
+  position: fixed; left: 14px; bottom: calc(var(--taskbar-h) + 10px); z-index: 4000;
+  display: flex; flex-direction: column; align-items: flex-start; pointer-events: none;
+}
+.narrator-body { pointer-events: auto; cursor: pointer; }
+.narrator-sprite { background-repeat: no-repeat; }
+.narrator-ph {
+  width: 100px; height: 100px; font-size: 72px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  filter: drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.35));
+  animation: ph-bob 3s ease-in-out infinite;
+}
+.narrator-ph.bonzi { filter: sepia(1) saturate(3.5) hue-rotate(225deg) drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.35)); }
+.narrator-ph.ph-greet, .narrator-ph.ph-idle { animation: ph-wave 0.45s ease-in-out 3; }
+.narrator-ph.ph-talk { animation: ph-nod 0.5s ease-in-out 3; }
+.narrator-ph.ph-correct, .narrator-ph.ph-win { animation: ph-hop 0.4s ease-out 2; }
+.narrator-ph.ph-wrong, .narrator-ph.ph-hurry { animation: ph-shake 0.1s linear 6; }
+.narrator-ph.ph-fail { animation: ph-droop 1.8s ease-in-out 1; }
+@keyframes ph-bob { 50% { transform: translateY(-3px); } }
+@keyframes ph-wave { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+@keyframes ph-nod { 50% { transform: translateY(3px) scaleY(0.96); } }
+@keyframes ph-hop { 40% { transform: translateY(-14px); } }
+@keyframes ph-shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+@keyframes ph-droop { 20%, 80% { transform: rotate(18deg) translateY(8px); } }
+
+.balloon {
+  position: relative; min-width: 150px; max-width: 240px; margin: 0 0 14px 30px; padding: 8px 10px;
+  background: var(--tooltip); border: 1px solid #000; border-radius: 8px; color: #000;
+  box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.3); pointer-events: auto; cursor: pointer;
+}
+.balloon::after, .balloon::before {
+  content: ""; position: absolute; left: 24px; border-style: solid;
+}
+.balloon::before { bottom: -12px; border-width: 12px 10px 0 0; border-color: #000 transparent transparent; }
+.balloon::after { bottom: -10px; left: 25px; border-width: 10px 8px 0 0; border-color: var(--tooltip) transparent transparent; }
+.balloon-name { display: block; margin-bottom: 2px; }
+
+/* ---------- Media player ---------- */
+.wmp-window .window-body { padding: 0; background: #1f2d47; }
+.wmp { color: #dfe7f4; font-size: 11px; }
+.wmp-now { display: flex; gap: 10px; padding: 10px; background: linear-gradient(#2f4468, #1f2d47); }
+.wmp-art {
+  width: 64px; height: 64px; flex: none; border: 1px solid #6d86b0; font-size: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #46618f, #27385a);
+}
+.wmp-info { min-width: 0; }
+.wmp-title { font: bold 14px var(--title-font); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wmp-meta { opacity: 0.8; }
+.wmp-time { margin-top: 6px; font-variant-numeric: tabular-nums; }
+.wmp-seek { display: block; width: calc(100% - 20px); margin: 4px 10px 0; }
+.wmp-controls { display: flex; align-items: center; gap: 6px; padding: 8px 10px; }
+.wmp-btn {
+  width: 28px; height: 28px; padding: 0; border-radius: 50%; cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #8ea6cc; background: linear-gradient(#e9eef6, #aebcd3); color: #1f2d47;
+}
+.wmp-btn.play { width: 38px; height: 38px; font-size: 16px; border-color: #d6ebd1; background: linear-gradient(#bfe0b8, #5f9a55); }
+.wmp-btn:focus-visible { outline: 1px dotted #fff; outline-offset: 2px; }
+.wmp-vol-label { margin-left: auto; opacity: 0.8; }
+.wmp-vol { width: 80px; }
+.wmp-playlist { list-style: none; margin: 0; padding: 4px; background: #101a2c; border-top: 1px solid #34496e; }
+.wmp-playlist button {
+  width: 100%; display: flex; justify-content: space-between; gap: 10px; padding: 4px 6px;
+  border: 0; background: none; color: #cfd9ea; cursor: pointer; text-align: left;
+}
+.wmp-playlist button:hover, .wmp-playlist button:focus-visible { background: #26395c; outline: none; }
+.wmp-playlist button[aria-current="true"] { color: #fff; background: #34507f; font-weight: bold; }
+.wmp-status { padding: 3px 8px; background: #16223a; border-top: 1px solid #34496e; font-size: 10px; opacity: 0.85; }
+
+/* ---------- Full-screen screens: boot, welcome, shutdown ---------- */
+.screen { position: fixed; inset: 0; z-index: 10000; }
+
+#boot {
+  background: #000; color: #fff; font-family: var(--title-font);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 60px;
+}
+.boot-logo { display: flex; align-items: center; gap: 16px; }
+.boot-wordmark small { display: block; font-size: 14px; font-weight: bold; }
+.boot-wordmark span { display: block; font-size: 54px; font-weight: bold; letter-spacing: -1px; line-height: 1; }
+.boot-wordmark .xp { color: #e8763a; font-size: 26px; font-style: italic; }
+.boot-wordmark em { display: block; margin-top: 4px; font-size: 13px; color: #aab; }
+.boot-bar {
+  position: relative; width: 124px; height: 18px; overflow: hidden;
+  border: 2px solid #b2b2b2; border-radius: 4px;
+}
+.boot-bar::before {
+  /* Three glossy blue blocks scrolling through the bar, like XP's boot screen */
+  content: ""; position: absolute; top: 2px; bottom: 2px; left: -34px; width: 30px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.15) 100%),
+    repeating-linear-gradient(90deg, #3b6ff0 0 8px, transparent 8px 11px);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 11px);
+  mask: repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 11px);
+  animation: boot-scroll 1.6s linear infinite;
+}
+@keyframes boot-scroll { to { left: 124px; } }
+.boot-foot {
+  position: absolute; left: 24px; right: 24px; bottom: 20px;
+  display: flex; justify-content: space-between; font: 12px var(--font); color: #bbb;
+}
+.boot-ms { font: italic bold 18px var(--title-font); color: #fff; }
+
+#welcome { display: flex; flex-direction: column; color: #fff; background: #5a7bc4; font-family: var(--title-font); }
+.wl-top, .wl-bottom { height: 78px; flex: none; background: #1e3f86; }
+.wl-top { border-bottom: 2px solid #9fb8e6; }
+.wl-bottom {
+  border-top: 2px solid var(--orange);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 30px;
+}
+.wl-main {
+  position: relative; flex: 1; display: flex; align-items: center;
+  background: radial-gradient(circle at 25% 20%, #7896d2, #5a7bc4 55%);
+}
+.wl-left { flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 14px; padding-right: 36px; text-align: right; font-size: 16px; }
+.wl-logo { display: flex; align-items: center; gap: 10px; font: bold 40px var(--title-font); }
+.wl-logo sup { color: #f09a4a; font-size: 20px; font-style: italic; }
+.wl-divider { width: 1px; align-self: stretch; margin: 60px 0; background: linear-gradient(transparent, #c8d6f0, transparent); }
+.wl-right { flex: 1; padding-left: 36px; }
+.wl-user {
+  display: flex; align-items: center; gap: 12px; padding: 8px 24px 8px 8px; cursor: pointer; text-align: left;
+  border: 0; border-radius: 6px; background: none; color: #fff; font: 20px var(--title-font);
+}
+.wl-user:hover, .wl-user:focus-visible { background: linear-gradient(90deg, #1e3f86, transparent); outline: none; }
+.wl-avatar {
+  width: 58px; height: 58px; border: 3px solid #fff; border-radius: 6px; background: #e9edf5;
+  display: flex; align-items: center; justify-content: center; font-size: 36px;
+}
+.wl-user:hover .wl-avatar, .wl-user:focus-visible .wl-avatar { border-color: #f2c14e; }
+.wl-name, .wl-sub { display: block; }
+.wl-sub { font-size: 12px; opacity: 0.85; }
+.wl-welcome {
+  display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
+  font: italic bold 64px var(--title-font); text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.35);
+}
+#welcome.logging-in .wl-left, #welcome.logging-in .wl-right, #welcome.logging-in .wl-divider { visibility: hidden; }
+#welcome.logging-in .wl-welcome { display: flex; }
+.wl-off { display: flex; align-items: center; gap: 8px; border: 0; background: none; color: #fff; cursor: pointer; font: 14px var(--font); }
+.wl-off:focus-visible { outline: 1px dotted #fff; }
+.wl-hint { margin: 0; font: 12px var(--font); text-align: right; opacity: 0.9; }
+
+#shutdown { font-family: var(--font); cursor: pointer; }
+#shutdown .sd-busy, #shutdown .sd-safe { position: absolute; inset: 0; display: none; }
+#shutdown.phase-1 .sd-busy {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: #5a7bc4; color: #fff; font: 18px var(--title-font);
+}
+#shutdown.phase-2 .sd-safe {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px;
+  background: #000; color: #e8813a; text-align: center;
+}
+.sd-safe p { margin: 0; font: bold 30px/1.4 var(--font); }
+.sd-safe small { color: #777; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+  /* Exception: the boot loading bar is a progress indicator, not decoration. Keep it moving, a bit slower. */
+  .boot-bar::before { animation-duration: 2.4s !important; animation-iteration-count: infinite !important; }
+}

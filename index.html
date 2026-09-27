@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kalimba 95</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="wallpaper" aria-hidden="true"></div>
+
+  <main id="desktop" aria-label="Desktop">
+    <div id="system-icons" role="group" aria-label="System icons"></div>
+    <div id="folders" role="group" aria-label="Folders"></div>
+    <div id="files" role="group" aria-label="Files to sort"></div>
+  </main>
+
+  <div id="windows"></div>
+  <!-- Windows that stay usable even while a modal dialog is open (the media player) -->
+  <div id="top-windows"></div>
+  <div id="narrator"></div>
+
+  <footer id="taskbar">
+    <button id="start-button" type="button" aria-haspopup="menu" aria-expanded="false">
+      <span class="xp-flag" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span>start</span>
+    </button>
+    <div id="task-buttons"></div>
+    <div id="tray">
+      <span id="tray-status"></span>
+      <span id="tray-timer" hidden></span>
+      <span id="tray-clock"></span>
+    </div>
+  </footer>
+
+  <div id="modal-layer" hidden></div>
+
+  <!-- Boot screen -->
+  <div id="boot" class="screen" aria-label="Starting Windows">
+    <div class="boot-logo">
+      <span class="xp-flag xp-flag-lg" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <div class="boot-wordmark">
+        <small>Microsoft<sup>®</sup></small>
+        <span>Windows<sup class="xp">xp</sup></span>
+        <em>Kalimba 95 Edition</em>
+      </div>
+    </div>
+    <div class="boot-bar" role="progressbar" aria-label="Loading"></div>
+    <div class="boot-foot"><span>Copyright © Microsoft Corporation</span><span class="boot-ms">Microsoft<sup>®</sup></span></div>
+  </div>
+
+  <!-- Welcome / log on screen -->
+  <div id="welcome" class="screen" hidden>
+    <div class="wl-top"></div>
+    <div class="wl-main">
+      <div class="wl-left">
+        <div class="wl-logo">
+          <span class="xp-flag xp-flag-md" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span>Windows<sup>xp</sup></span>
+        </div>
+        <p>To begin, click your user name</p>
+      </div>
+      <div class="wl-divider"></div>
+      <div class="wl-right">
+        <button id="welcome-user" class="wl-user" type="button">
+          <span class="wl-avatar" aria-hidden="true">🌼</span>
+          <span><span class="wl-name">Player</span><span class="wl-sub">Kalimba 95</span></span>
+        </button>
+      </div>
+      <div class="wl-welcome" aria-live="polite">welcome</div>
+    </div>
+    <div class="wl-bottom">
+      <button id="welcome-off" class="wl-off" type="button"><span class="power-icon" aria-hidden="true">⏻</span>Turn off computer</button>
+      <p class="wl-hint">After you log on, drag each file into the right folder.<br>Every level has its own rules.</p>
+    </div>
+  </div>
+
+  <!-- Shutdown screens -->
+  <div id="shutdown" class="screen" hidden>
+    <div class="sd-busy">
+      <span class="xp-flag xp-flag-md" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <p>Windows is shutting down...</p>
+    </div>
+    <div class="sd-safe">
+      <p>It is now safe to turn off<br>your computer.</p>
+      <small>Click anywhere to restart</small>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
